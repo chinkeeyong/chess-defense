@@ -173,6 +173,7 @@ GameObject:
   - component: {fileID: 7419909137364011808}
   - component: {fileID: 7419909137364011811}
   - component: {fileID: 4609812283783795504}
+  - component: {fileID: 8983633536060568067}
   m_Layer: 0
   m_Name: Piece
   m_TagString: Untagged
@@ -212,8 +213,7 @@ MonoBehaviour:
   playerColor: 0
   chessPieceType: 5
   boardPosition: {x: 0, y: 0}
-  snapToBoardPosition: 1
-  highlightOnMouseOver: 1
+  hasBeenMovedThisTurn: 0
   white_king: {fileID: 21300000, guid: ff2746163e225f943a3f12464165c43b, type: 3}
   white_queen: {fileID: 21300000, guid: db8662df4d60a344db14c5763e76e201, type: 3}
   white_bishop: {fileID: 21300000, guid: f78076e65c2ae2749b26cd13f62d283d, type: 3}
@@ -258,6 +258,22 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 0.3, y: 0.38}
   m_EdgeRadius: 0
+--- !u!111 &8983633536060568067
+Animation:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7419909137364011814}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Animation: {fileID: 7400000, guid: 19a8c22ed605e2e43b4513da95b0bf80, type: 2}
+  m_Animations:
+  - {fileID: 7400000, guid: 19a8c22ed605e2e43b4513da95b0bf80, type: 2}
+  m_WrapMode: 0
+  m_PlayAutomatically: 0
+  m_AnimatePhysics: 0
+  m_CullingType: 0
 --- !u!1 &8140012616741141332
 GameObject:
   m_ObjectHideFlags: 0

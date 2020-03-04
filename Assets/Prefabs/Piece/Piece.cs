@@ -14,20 +14,24 @@ public class Piece : MonoBehaviour
     public ChessPieceType chessPieceType = ChessPieceType.Pawn;
 
     public Vector2Int boardPosition = new Vector2Int(0, 0);
-
-    public bool snapToBoardPosition = true;
-    public bool highlightOnMouseOver = true;
+    
+    bool animatingMovementToAIPreferredMove = false;
+    bool highlightOnMouseOver = true;
 
 
     // Runtime variables
 
     Color glowColor = new Color();
-    bool draggable = false;
     bool dragging = false;
     bool highlighted = false;
     bool hasMoved = false;
+    public bool canBeCapturedEnPassant = false;
     List<Vector2Int> validMoves = new List<Vector2Int>();
+    float animationPercentage = 0f;
 
+    // Used to store info for AI
+    Vector2Int aiPreferredMove = new Vector2Int(-1, -1);
+    public bool hasBeenMovedThisTurn = false;
 
     // Static values
 
@@ -43,6 +47,9 @@ public class Piece : MonoBehaviour
     static int BoardYPlayerMax = 8;
     static float zDepthPerY = 0.01f;
     static float glowPulseSpeed = 5f;
+    static float pieceMovementSpeed = 2f;
+    static float knightAnimationLerpSpeed = 3f;
+    static float knightJumpAnimationMagnitude = 0.5f;
 
 
     // Resources
@@ -72,6 +79,7 @@ public class Piece : MonoBehaviour
     public Sprite glow_knight;
     public Sprite glow_pawn;
 
+
     // Awake is called when the script is loaded, before Start. We initialize the piece here.
     private void Awake()
     {
@@ -89,6 +97,8 @@ public class Piece : MonoBehaviour
         glow.SetActive(false);
     }
 
+
+    // Called from GameController.
     public void Initialize()
     {
 
@@ -99,27 +109,23 @@ public class Piece : MonoBehaviour
         gameController.pieces.Add(this);
     }
 
+
+    // Called just before first frame.
     public void Start()
     {
-        GetValidMoves();
+        SetValidMoves();
+        SnapToBoardPosition();
     }
+
 
     // Update is called once per frame
     void Update()
     {
-        // Snap to board position
-        if (snapToBoardPosition && !dragging)
+        // Move
+        if (animatingMovementToAIPreferredMove)
         {
-            transform.position = boardOrigin + (boardPosition.x * displacementPerX) + (boardPosition.y * displacementPerY);
+            AnimateMovement();
         }
-
-        // Set z depth
-        float newZ = transform.position.y * zDepthPerY;
-        if (dragging)
-        {
-            newZ -= 2f;
-        }
-        transform.position = new Vector3(transform.position.x, transform.position.y, newZ);
 
         // Make glow glowy
         if (glow.activeInHierarchy)
@@ -129,7 +135,7 @@ public class Piece : MonoBehaviour
         }
     }
 
-
+    
     private void OnMouseEnter()
     {
         if (highlightOnMouseOver && !highlighted)
@@ -138,7 +144,7 @@ public class Piece : MonoBehaviour
         }
     }
 
-
+    
     private void OnMouseExit()
     {
         if (highlighted)
@@ -147,7 +153,7 @@ public class Piece : MonoBehaviour
         }
     }
 
-
+    
     private void OnMouseUp()
     {
         if (dragging)
@@ -156,51 +162,29 @@ public class Piece : MonoBehaviour
             shadow.SetActive(true);
             
             // Move the mouse to the new tile if it's a valid move.
-            Vector2Int _hoveredTile = GetMouseHoveredTile();
+            Vector2Int _hoveredTile = GetMouseHoveredBoardPosition();
             if (validMoves.Contains(_hoveredTile))
             {
-                boardPosition = _hoveredTile;
-                hasMoved = true;
-
-                // Capture enemy piece, if it's in that space
-                Piece _capturedPieceIfAny = null;
-                foreach (Piece _piece in gameController.pieces)
-                {
-                    if (_piece.playerColor != playerColor && _piece.boardPosition == boardPosition)
-                    {
-                        _capturedPieceIfAny = _piece;
-                        break;
-                    }
-                }
-
-                if (_capturedPieceIfAny != null)
-                {
-                    gameController.Capture(_capturedPieceIfAny);
-                }
-
-                // Now refresh valid moves of all friendly pieces
-                foreach (Piece _piece in gameController.pieces)
-                {
-                     _piece.GetValidMoves();
-                }
-
-                // And update UI
-                Unhighlight();
-                Highlight();
+                MoveToBoardPosition(_hoveredTile);
+                gameController.gamePhase = GameController.GamePhase.PLAYER_END_TURN;
+            }
+            else
+            {
+                SnapToBoardPosition();
             }
         }
     }
 
-
+    
     private void OnMouseDown()
     {
-        if (draggable)
+        if (gameController.gamePhase == GameController.GamePhase.PLAYER_TO_MOVE && playerColor == PlayerColor.White)
         {
             dragging = true;
             shadow.SetActive(false);
         }
     }
-
+    
 
     private void OnMouseDrag()
     {
@@ -208,11 +192,12 @@ public class Piece : MonoBehaviour
         {
             Vector3 mouseScreenPoint = new Vector3(Input.mousePosition.x, Input.mousePosition.y, 0);
             Vector3 mousePosition = Camera.main.ScreenToWorldPoint(mouseScreenPoint) + mouseDragOffset;
-            mousePosition.z = 0f;
+            mousePosition.z = -2f;
             transform.position = mousePosition;
         }
     }
 
+    
     private void SetChessPieceType(ChessPieceType t)
     {
         switch (t)
@@ -262,12 +247,10 @@ public class Piece : MonoBehaviour
         {
             case PlayerColor.White:
                 glowColor = Color.green;
-                draggable = true;
                 break;
 
             case PlayerColor.Black:
                 glowColor = Color.red;
-                draggable = false;
                 break;
 
             default:
@@ -277,7 +260,58 @@ public class Piece : MonoBehaviour
     }
 
 
-    private void GetValidMoves()
+    private Vector3 BoardPositionToWorldSpace(Vector2Int _position)
+    {
+        Vector3 _v = boardOrigin + (_position.x * displacementPerX) + (_position.y * displacementPerY);
+        return new Vector3(_v.x, _v.y, _v.y * zDepthPerY);
+    }
+
+    
+    private void SnapToBoardPosition()
+    {
+        transform.position = BoardPositionToWorldSpace(boardPosition);
+    }
+
+
+    private void AnimateMovement()
+    {
+        if (chessPieceType == ChessPieceType.Knight)
+        {
+            animationPercentage += knightAnimationLerpSpeed * Time.deltaTime;
+            if (animationPercentage < 1f)
+            {
+                float _knightJumpHeight = Mathf.Sin(animationPercentage * Mathf.PI) * knightJumpAnimationMagnitude;
+                transform.position = Vector3.Lerp(BoardPositionToWorldSpace(boardPosition), BoardPositionToWorldSpace(aiPreferredMove), animationPercentage);
+                transform.position += new Vector3(0f, _knightJumpHeight, 0f);
+                shadow.transform.localPosition = new Vector3(0f, -_knightJumpHeight, 0f);
+            }
+            else
+            {
+                MoveToBoardPosition(aiPreferredMove);
+                shadow.transform.localPosition = Vector3.zero;
+                animatingMovementToAIPreferredMove = false;
+                gameController.animating = false;
+            }
+        }
+        else
+        {
+            Vector3 _movementVector = Vector3.Normalize(BoardPositionToWorldSpace(aiPreferredMove) - BoardPositionToWorldSpace(boardPosition)) * pieceMovementSpeed * Time.deltaTime;
+            float _distanceToTarget = (BoardPositionToWorldSpace(aiPreferredMove) - transform.position).magnitude;
+            if (_movementVector.magnitude < _distanceToTarget)
+            {
+                transform.position += _movementVector;
+            }
+            else
+            {
+                MoveToBoardPosition(aiPreferredMove);
+                animatingMovementToAIPreferredMove = false;
+                gameController.animating = false;
+            }
+        }
+    }
+
+
+    private List<Vector2Int> GetValidMoves(Vector2Int _boardPosition)
     {
         // Get the base movement for each chess piece type.
         List<Vector2Int> _baseValidMoves = new List<Vector2Int>();
@@ -292,7 +326,110 @@ public class Piece : MonoBehaviour
                 _baseValidMoves.Add(new Vector2Int(-1, 1));
                 _baseValidMoves.Add(new Vector2Int(0, 1));
                 _baseValidMoves.Add(new Vector2Int(0, -1));
-                // TODO: Add castling.
+
+                // Castling
+                if (!hasMoved)
+                {
+                    // Let us first assume that castling long (to queenside rook) is possible.
+                    bool _canCastleLong = true;
+
+                    // Queenside Rook must be in the correct position to castle long
+                    Piece _queensideRook = null;
+                    _queensideRook = gameController.pieces.Find(p =>
+                        p.playerColor == playerColor &&
+                        p.chessPieceType == ChessPieceType.Rook &&
+                        !p.hasMoved &&
+                        p.boardPosition == new Vector2Int(0, 8)
+                    );
+
+                    if (_queensideRook != null)
+                    {
+                        // There must be no intervening pieces.
+                        foreach (Piece _piece in gameController.pieces)
+                        {
+                            if (_piece.boardPosition.y == boardPosition.y &&
+                                _piece.boardPosition.x > _queensideRook.boardPosition.x &&
+                                _piece.boardPosition.x < boardPosition.x)
+                            {
+                                _canCastleLong = false;
+                                break;
+                            }
+                        }
+
+                        // Can't castle out of, through, or into check.
+                        foreach (Piece _piece in gameController.pieces)
+                        {
+                            if (_piece.playerColor != playerColor)
+                            {
+                                foreach (Vector2Int _move in _piece.validMoves)
+                                {
+                                    if (_move.y == boardPosition.y &&
+                                        _move.x >= _queensideRook.boardPosition.x &&
+                                        _move.x <= boardPosition.x)
+                                    {
+                                        _canCastleLong = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (_canCastleLong)
+                        {
+                            _baseValidMoves.Add(new Vector2Int(-2, 0));
+                        }
+                    }
+
+                    // Let us first assume that castling short (to kingside rook) is possible.
+                    bool _canCastleShort = true;
+
+                    // Kingside Rook must be in the correct position to castle long
+                    Piece _kingsideRook = null;
+                    _kingsideRook = gameController.pieces.Find(p =>
+                        p.playerColor == playerColor &&
+                        p.chessPieceType == ChessPieceType.Rook &&
+                        !p.hasMoved &&
+                        p.boardPosition == new Vector2Int(7, 8)
+                    );
+
+                    if (_kingsideRook != null)
+                    {
+                        // There must be no intervening pieces.
+                        foreach (Piece _piece in gameController.pieces)
+                        {
+                            if (_piece.boardPosition.y == boardPosition.y &&
+                                _piece.boardPosition.x < _kingsideRook.boardPosition.x &&
+                                _piece.boardPosition.x > boardPosition.x)
+                            {
+                                _canCastleShort = false;
+                                break;
+                            }
+                        }
+
+                        // Can't castle out of, through, or into check.
+                        foreach (Piece _piece in gameController.pieces)
+                        {
+                            if (_piece.playerColor != playerColor)
+                            {
+                                foreach (Vector2Int _move in _piece.validMoves)
+                                {
+                                    if (_move.y == boardPosition.y &&
+                                        _move.x <= _kingsideRook.boardPosition.x &&
+                                        _move.x >= boardPosition.x)
+                                    {
+                                        _canCastleShort = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (_canCastleShort)
+                        {
+                            _baseValidMoves.Add(new Vector2Int(2, 0));
+                        }
+                    }
+                }
                 break;
 
             case ChessPieceType.Queen: // Queens can move up to 7 squares in any direction, obstructed by pieces.
@@ -300,49 +437,49 @@ public class Piece : MonoBehaviour
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, -i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, 0);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(-i, -i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(-i, 0);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(-i, i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, -i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 break;
 
@@ -351,25 +488,25 @@ public class Piece : MonoBehaviour
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, -i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(-i, -i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(-i, i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 break;
 
@@ -378,25 +515,25 @@ public class Piece : MonoBehaviour
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, 0);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(-i, 0);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, -i);
                     _baseValidMoves.Add(_moveOnBoard);
-                    if (PotentialMoveIsObstructed(_moveOnBoard)) { break; }
+                    if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
                 break;
 
@@ -414,10 +551,10 @@ public class Piece : MonoBehaviour
             case ChessPieceType.Pawn: // Pawns can only move one space forward. "Forward" changes depending on if the pawn is white or black.
                 if (playerColor == PlayerColor.White)
                 {
-                    if (!PotentialMoveIsObstructed(new Vector2Int(0, -1)))
+                    if (!PotentialMoveIsObstructed(_boardPosition, new Vector2Int(0, -1)))
                     {
                         _baseValidMoves.Add(new Vector2Int(0, -1));
-                        if (!PotentialMoveIsObstructed(new Vector2Int(0, -2)) && !hasMoved)
+                        if (!PotentialMoveIsObstructed(_boardPosition, new Vector2Int(0, -2)) && !hasMoved)
                         {
                             _baseValidMoves.Add(new Vector2Int(0, -2)); // Double move on first move.
                         }
@@ -426,25 +563,31 @@ public class Piece : MonoBehaviour
                     // Add potential captures.
                     foreach (Piece _piece in gameController.pieces)
                     {
-                        if (_piece.playerColor != playerColor && _piece.boardPosition == boardPosition + new Vector2Int(-1, -1))
+                        if (_piece.playerColor != playerColor)
                         {
-                            _baseValidMoves.Add(new Vector2Int(-1, -1));
-                        }
-                    }
-                    foreach (Piece _piece in gameController.pieces)
-                    {
-                        if (_piece.playerColor != playerColor && _piece.boardPosition == boardPosition + new Vector2Int(1, -1))
-                        {
-                            _baseValidMoves.Add(new Vector2Int(1, -1));
+                            if (
+                                _piece.boardPosition == _boardPosition + new Vector2Int(-1, -1) || // Regular pawn capture
+                                 (_piece.canBeCapturedEnPassant && _piece.boardPosition == _boardPosition + new Vector2Int(-1, 0))    // En Passant capture
+                               )
+                            {
+                                _baseValidMoves.Add(new Vector2Int(-1, -1));
+                            }
+                            if (
+                                _piece.boardPosition == _boardPosition + new Vector2Int(1, -1) || // Regular pawn capture
+                                 (_piece.canBeCapturedEnPassant && _piece.boardPosition == _boardPosition + new Vector2Int(1, 0))    // En Passant capture
+                               )
+                            {
+                                _baseValidMoves.Add(new Vector2Int(1, -1));
+                            }
                         }
                     }
                 }
                 else // Pawn is black
                 {
-                    if (!PotentialMoveIsObstructed(new Vector2Int(0, 1)))
+                    if (!PotentialMoveIsObstructed(_boardPosition, new Vector2Int(0, 1)))
                     {
                         _baseValidMoves.Add(new Vector2Int(0, 1));
-                        if (!PotentialMoveIsObstructed(new Vector2Int(0, 2)) && !hasMoved)
+                        if (!PotentialMoveIsObstructed(_boardPosition, new Vector2Int(0, 2)) && !hasMoved)
                         {
                             _baseValidMoves.Add(new Vector2Int(0, 2)); // Double move on first move.
                         }
@@ -453,16 +596,22 @@ public class Piece : MonoBehaviour
                     // Add potential captures.
                     foreach (Piece _piece in gameController.pieces)
                     {
-                        if (_piece.playerColor != playerColor && _piece.boardPosition == boardPosition + new Vector2Int(-1, 1))
+                        if (_piece.playerColor != playerColor)
                         {
-                            _baseValidMoves.Add(new Vector2Int(-1, 1));
-                        }
-                    }
-                    foreach (Piece _piece in gameController.pieces)
-                    {
-                        if (_piece.playerColor != playerColor && _piece.boardPosition == boardPosition + new Vector2Int(1, 1))
-                        {
-                            _baseValidMoves.Add(new Vector2Int(1, 1));
+                            if (
+                                _piece.boardPosition == _boardPosition + new Vector2Int(-1, 1) || // Regular pawn capture
+                                 (_piece.canBeCapturedEnPassant && _piece.boardPosition == _boardPosition + new Vector2Int(-1, 0))    // En Passant capture
+                               )
+                            {
+                                _baseValidMoves.Add(new Vector2Int(-1, 1));
+                            }
+                            if (
+                                _piece.boardPosition == _boardPosition + new Vector2Int(1, 1) || // Regular pawn capture
+                                 (_piece.canBeCapturedEnPassant && _piece.boardPosition == _boardPosition + new Vector2Int(1, 0))    // En Passant capture
+                               )
+                            {
+                                _baseValidMoves.Add(new Vector2Int(1, 1));
+                            }
                         }
                     }
                 }
@@ -473,7 +622,7 @@ public class Piece : MonoBehaviour
                 break;
         }
 
-        validMoves.Clear();
+        List<Vector2Int> _validMoves = new List<Vector2Int>();
 
         // Now that we have the normal valid movement for the chess pieces, apply it to this piece's position and add it to valid moves.
         foreach(Vector2Int v in _baseValidMoves)
@@ -482,7 +631,7 @@ public class Piece : MonoBehaviour
 
 
             // Cull if it's out of bounds.
-            if (_moveOnBoard.x < BoardXMin || _moveOnBoard.x > BoardXMax || _moveOnBoard.y < BoardYMin || _moveOnBoard.y > BoardYMax)
+            if (PotentialMoveIsOutOfBounds(_moveOnBoard))
             {
                 continue;
             }
@@ -502,20 +651,58 @@ public class Piece : MonoBehaviour
                     break;
                 }
             }
+
+            // Cull it if this is a King and the move would put King in check.
+            if (chessPieceType == ChessPieceType.King)
+            {
+                foreach (Piece _piece in gameController.pieces)
+                {
+                    if (_piece.playerColor != playerColor && _piece.playerColor == PlayerColor.Black) // No plans to add black kings for now
+                    {
+                        if (_piece.chessPieceType == ChessPieceType.Pawn &&
+                            (_moveOnBoard == _piece.boardPosition + new Vector2Int(1, 1) || _moveOnBoard == _piece.boardPosition + new Vector2Int(-1, 1)))
+                        {
+                            _cullMe = true;
+                            break;
+                        }
+                        else
+                        {
+                            foreach (Vector2Int _move in _piece.validMoves)
+                            {
+                                if (_move == _moveOnBoard)
+                                {
+                                    _cullMe = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (_cullMe)
             {
                 continue;
             }
 
-            validMoves.Add(_moveOnBoard);
+            _validMoves.Add(_moveOnBoard);
         }
+
+        return _validMoves;
     }
 
-    private bool PotentialMoveIsObstructed(Vector2Int _potentialMove)
+    
+    public void SetValidMoves()
+    {
+        validMoves = GetValidMoves(boardPosition);
+    }
+
+
+    private bool PotentialMoveIsObstructed(Vector2Int _position, Vector2Int _potentialMove)
     {
         foreach (Piece _piece in gameController.pieces)
         {
-            if (_piece.boardPosition == boardPosition + _potentialMove)
+            if (_piece.boardPosition == _position + _potentialMove)
             {
                 return true;
             }
@@ -523,10 +710,256 @@ public class Piece : MonoBehaviour
         return false;
     }
 
+
+    private bool PotentialMoveIsOutOfBounds(Vector2Int _potentialMove)
+    {
+        return _potentialMove.x < BoardXMin || _potentialMove.x > BoardXMax || _potentialMove.y < BoardYMin || _potentialMove.y > BoardYMax;
+    }
+
+
+    private bool PotentialMoveWillCapturePiece(Vector2Int _potentialMove)
+    {
+        foreach (Piece _piece in gameController.pieces)
+        {
+            if (_piece.playerColor != playerColor)
+            {
+                if (_piece.boardPosition == _potentialMove)
+                {
+                    return true;
+                }
+
+                // En Passant
+                if (_piece.canBeCapturedEnPassant && chessPieceType == ChessPieceType.Pawn)
+                {
+                    if (playerColor == PlayerColor.White && _piece.boardPosition == _potentialMove + new Vector2Int(0, 1))
+                    {
+                        return true;
+                    }
+                    if (playerColor == PlayerColor.Black && _piece.boardPosition == _potentialMove + new Vector2Int(0, -1))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+
+    private bool PotentialMoveWillPutWhiteKingInCheck(Vector2Int _potentialMove)
+    {
+        Piece _whiteKing = gameController.pieces.Find(p => p.chessPieceType == ChessPieceType.King && p.playerColor == PlayerColor.White);
+
+        List<Vector2Int> _validMovesAfterPotentialMove = GetValidMoves(_potentialMove);
+
+        foreach(Vector2Int _futureMove in _validMovesAfterPotentialMove)
+        {
+            if (_futureMove == _whiteKing.boardPosition)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    public void CalcAIPreferredMove()
+    {
+        // This function assigns a score to each valid move and then puts the best scoring move in aiPreferredMove.
+
+        // First, return null if there are no valid moves.
+        if (validMoves.Count < 1)
+        {
+            aiPreferredMove = new Vector2Int(-1, -1);
+            return;
+        }
+
+        // There are valid moves? Great. First we create a list
+        List<int> _moveScores = new List<int>();
+
+        // And an int to keep track of the highest score.
+        int _highestMoveScore = 0;
+
+        // Now run through all valid moves.
+        foreach (Vector2Int _move in validMoves)
+        {
+            // Base score: 0.
+            int _evaluatedScore = 0;
+
+            // +10000 Score if move will cause player to lose.
+            if (_move.y >= 9)
+            {
+                _evaluatedScore += 10000;
+            }
+
+            // +1000 Score if white king will be put in check.
+            if (PotentialMoveWillPutWhiteKingInCheck(_move))
+            {
+                _evaluatedScore += 1000;
+            }
+
+            // +100 Score if a white piece is captured.
+            if (PotentialMoveWillCapturePiece(_move))
+            {
+                _evaluatedScore += 100;
+            }
+
+            // +10 Score per square ahead on the board it is.
+            _evaluatedScore += _move.y * 10;
+
+            // Finally, add the score to the list
+            _moveScores.Add(_evaluatedScore);
+
+            // Increase highest move score if this score is highest
+            if (_evaluatedScore > _highestMoveScore)
+            {
+                _highestMoveScore = _evaluatedScore;
+            }
+        }
+
+        // Now that we have our list of valid moves, let's make a new list only including moves that are the highest move score.
+        List<Vector2Int> _movesWithHighestMoveScore = new List<Vector2Int>();
+        for (int i = 0; i < validMoves.Count; i++)
+        {
+            if (_moveScores[i] == _highestMoveScore)
+            {
+                _movesWithHighestMoveScore.Add(validMoves[i]);
+            }
+        }
+
+        // The final preferred move is the move with the highest score, or the one randomly determined from among moves tied for highest move score.
+        int _chosenMoveIndex = Random.Range(0,_movesWithHighestMoveScore.Count - 1);
+        aiPreferredMove = _movesWithHighestMoveScore[_chosenMoveIndex];
+    }
+
+
+    public void ExecuteAIMove()
+    {
+        if (aiPreferredMove != new Vector2Int(-1, -1))
+        {
+            animatingMovementToAIPreferredMove = true;
+            animationPercentage = 0f;
+            gameController.animating = true;
+        }
+    }
+
+
+    private void MoveToBoardPosition(Vector2Int _move)
+    {
+        if (chessPieceType == ChessPieceType.Pawn && Mathf.Abs((_move - boardPosition).magnitude) == 2)
+        {
+            canBeCapturedEnPassant = true;
+        }
+
+        // Castling
+        if (chessPieceType == ChessPieceType.King)
+        {
+            // Castling long
+            if (_move - boardPosition == new Vector2Int(-2, 0))
+            {
+                Piece _queensideRook = null;
+                _queensideRook = gameController.pieces.Find(p =>
+                    p.playerColor == playerColor &&
+                    p.chessPieceType == ChessPieceType.Rook &&
+                    !p.hasMoved &&
+                    p.boardPosition == new Vector2Int(0, 8)
+                );
+
+                if (_queensideRook != null)
+                {
+                    _queensideRook.aiPreferredMove = new Vector2Int(3, boardPosition.y);
+                    _queensideRook.ExecuteAIMove();
+                }
+            }
+
+            // Castling short
+            if (_move - boardPosition == new Vector2Int(2, 0))
+            {
+                Piece _kingsideRook = null;
+                _kingsideRook = gameController.pieces.Find(p =>
+                    p.playerColor == playerColor &&
+                    p.chessPieceType == ChessPieceType.Rook &&
+                    !p.hasMoved &&
+                    p.boardPosition == new Vector2Int(7, 8)
+                );
+
+                if (_kingsideRook != null)
+                {
+                    _kingsideRook.aiPreferredMove = new Vector2Int(5, boardPosition.y);
+                    _kingsideRook.ExecuteAIMove();
+                }
+            }
+        }
+
+        boardPosition = _move;
+        hasMoved = true;
+
+        // Capture enemy pieces
+        Piece _capturedPieceIfAny = null;
+        foreach (Piece _piece in gameController.pieces)
+        {
+            if (_piece.playerColor != playerColor && _piece.boardPosition == boardPosition)
+            {
+                _capturedPieceIfAny = _piece;
+                break;
+            }
+
+            // En Passant capture
+            if (chessPieceType == ChessPieceType.Pawn)
+            {
+                if (playerColor == PlayerColor.White && _piece.boardPosition == boardPosition + new Vector2Int(0, 1))
+                {
+                    _capturedPieceIfAny = _piece;
+                    break;
+                }
+                if (playerColor == PlayerColor.Black && _piece.boardPosition == boardPosition + new Vector2Int(0, -1))
+                {
+                    _capturedPieceIfAny = _piece;
+                    break;
+                }
+            }
+        }
+
+        if (_capturedPieceIfAny != null)
+        {
+            gameController.Capture(_capturedPieceIfAny);
+        }
+
+        // Now refresh valid moves of all pieces
+        gameController.SetAllValidMoves();
+
+        // And update UI
+        if (highlighted)
+        {
+            Unhighlight();
+            Highlight();
+        }
+
+        SnapToBoardPosition();
+    }
+
+
     private void Highlight()
     {
         highlighted = true;
         glow.SetActive(true);
+
+        // Highlight areas that black pawn can potentially capture
+        if (playerColor == PlayerColor.Black && chessPieceType == ChessPieceType.Pawn)
+        {
+            Vector2Int _forwardAndLeft = new Vector2Int(boardPosition.x - 1, boardPosition.y + 1);
+            if (!PotentialMoveIsOutOfBounds(_forwardAndLeft))
+            {
+                highlightTilemap.HighlightDangerTile(_forwardAndLeft);
+            }
+
+            Vector2Int _forwardAndRight = new Vector2Int(boardPosition.x + 1, boardPosition.y + 1);
+            if (!PotentialMoveIsOutOfBounds(_forwardAndRight))
+            {
+                highlightTilemap.HighlightDangerTile(_forwardAndRight);
+            }
+        }
+
         foreach(Vector2Int v in validMoves)
         {
             if (playerColor == PlayerColor.White)
@@ -540,6 +973,7 @@ public class Piece : MonoBehaviour
         }
     }
 
+    
     private void Unhighlight()
     {
         highlighted = false;
@@ -547,7 +981,8 @@ public class Piece : MonoBehaviour
         highlightTilemap.ClearAllTiles();
     }
 
-    public Vector2Int GetMouseHoveredTile()
+    
+    public Vector2Int GetMouseHoveredBoardPosition()
     {
         Vector3 _mouseScreenPoint = new Vector3(Input.mousePosition.x, Input.mousePosition.y, 0);
         Vector3 _mousePosition3D = Camera.main.ScreenToWorldPoint(_mouseScreenPoint);

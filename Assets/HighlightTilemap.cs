@@ -7,6 +7,7 @@ public class HighlightTilemap : MonoBehaviour
 {
     public TileBase highlightfriendly;
     public TileBase highlightenemy;
+    public TileBase highlightdanger;
 
     Tilemap tilemap;
 
@@ -38,6 +39,12 @@ public class HighlightTilemap : MonoBehaviour
     public void HighlightEnemyTile(Vector2Int v)
     {
         tilemap.SetTile(ChessboardToGrid(v), highlightenemy);
+        tilemap.RefreshTile(ChessboardToGrid(v));
+    }
+
+    public void HighlightDangerTile(Vector2Int v)
+    {
+        tilemap.SetTile(ChessboardToGrid(v), highlightdanger);
         tilemap.RefreshTile(ChessboardToGrid(v));
     }
 

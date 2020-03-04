@@ -88,7 +88,7 @@ public class GameController : MonoBehaviour
                 break;
 
             case GamePhase.AI_SPAWNING:
-                ExecuteEnemySpawner();
+                SpawnAllEnemyPieces();
                 gamePhase = GamePhase.AI_END_TURN;
                 break;
 
@@ -106,7 +106,6 @@ public class GameController : MonoBehaviour
                     if (_piece.playerColor == Piece.PlayerColor.White)
                     {
                         _piece.canBeCapturedEnPassant = false;
-                        break;
                     }
                 }
                 gamePhase = GamePhase.PLAYER_TO_MOVE;
@@ -120,7 +119,6 @@ public class GameController : MonoBehaviour
                     if (_piece.playerColor == Piece.PlayerColor.Black)
                     {
                         _piece.canBeCapturedEnPassant = false;
-                        break;
                     }
                 }
                 gamePhase = GamePhase.AI_EXECUTION;
@@ -198,12 +196,91 @@ public class GameController : MonoBehaviour
 
 
     // Enemy Spawner, spawns black pieces based on turn count
-    private void ExecuteEnemySpawner()
+    private void SpawnAllEnemyPieces()
+    {
+        if (turns < 8)
+        {
+            if (turns % 2 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Pawn);
+            }
+        }
+        else if (turns < 18)
+        {
+            if (turns % 4 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Knight);
+            }
+            if (turns % 2 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Pawn);
+            }
+        }
+        else if (turns < 30)
+        {
+            if (turns % 6 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Bishop);
+            }
+            else if (turns % 3 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Knight);
+            }
+            if (turns % 2 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Pawn);
+            }
+        }
+        else if (turns < 40)
+        {
+            if (turns % 5 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Rook);
+            }
+            else if (turns % 6 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Bishop);
+            }
+            else if (turns % 3 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Knight);
+            }
+            if (turns % 2 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Pawn);
+            }
+        }
+        else
+        {
+            if (turns % 10 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Queen);
+            }
+            if (turns % 5 == 1)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Rook);
+            }
+            if (turns % 5 == 3)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Bishop);
+            }
+            if (turns % 3 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Knight);
+            }
+            if (turns % 2 == 0)
+            {
+                SpawnEnemyPiece(Piece.ChessPieceType.Pawn);
+            }
+        }
+    }
+
+    private void SpawnEnemyPiece(Piece.ChessPieceType _chessPieceType)
     {
         // First make sure there are valid spaces to spawn in.
         int[] _input = { 0, 1, 2, 3, 4, 5, 6, 7 };
         List<int> _validXCoordinates = new List<int>(_input);
-        foreach(Piece _piece in pieces)
+        foreach (Piece _piece in pieces)
         {
             if (_piece.boardPosition.y == 0)
             {
@@ -221,27 +298,7 @@ public class GameController : MonoBehaviour
 
         Piece _newPiece = null;
 
-        // Now spawn a piece type appropriate for the turn count. Difficulty scales up as time goes on.
-        if (turns % 6 == 0 && turns > 20)
-        {
-            _newPiece = InstantiatePiece(Piece.PlayerColor.Black, Piece.ChessPieceType.Bishop, _spawnedX, 0);
-        }
-        else if (turns % 4 == 0 && turns > 20)
-        {
-            _newPiece = InstantiatePiece(Piece.PlayerColor.Black, Piece.ChessPieceType.Knight, _spawnedX, 0);
-        }
-        else if (turns % 3 == 0 && turns > 20)
-        {
-            _newPiece = InstantiatePiece(Piece.PlayerColor.Black, Piece.ChessPieceType.Pawn, _spawnedX, 0);
-        }
-        else if (turns % 6 == 0 && turns > 10)
-        {
-            _newPiece = InstantiatePiece(Piece.PlayerColor.Black, Piece.ChessPieceType.Knight, _spawnedX, 0);
-        }
-        else if (turns % 2 == 0)
-        {
-            _newPiece = InstantiatePiece(Piece.PlayerColor.Black, Piece.ChessPieceType.Pawn, _spawnedX, 0);
-        }
+        _newPiece = InstantiatePiece(Piece.PlayerColor.Black, _chessPieceType, _spawnedX, 0);
 
         if (_newPiece != null)
         {

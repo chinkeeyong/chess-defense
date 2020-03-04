@@ -432,7 +432,7 @@ public class Piece : MonoBehaviour
                 }
                 break;
 
-            case ChessPieceType.Queen: // Queens can move up to 7 squares in any direction, obstructed by pieces.
+            case ChessPieceType.Queen: // Queens can move up to 7 squares in any direction or 8 squares vertically, obstructed by pieces.
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, -i);
@@ -469,13 +469,13 @@ public class Piece : MonoBehaviour
                     _baseValidMoves.Add(_moveOnBoard);
                     if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
-                for (int i = 1; i <= 7; i++)
+                for (int i = 1; i <= 8; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, i);
                     _baseValidMoves.Add(_moveOnBoard);
                     if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
-                for (int i = 1; i <= 7; i++)
+                for (int i = 1; i <= 8; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, -i);
                     _baseValidMoves.Add(_moveOnBoard);
@@ -510,7 +510,7 @@ public class Piece : MonoBehaviour
                 }
                 break;
 
-            case ChessPieceType.Rook: // Rooks can move up to 7 squares horizontally or vertically, obstructed by pieces.
+            case ChessPieceType.Rook: // Rooks can move up to 7 squares horizontally or 8 squares vertically, obstructed by pieces.
                 for (int i = 1; i <= 7; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(i, 0);
@@ -523,13 +523,13 @@ public class Piece : MonoBehaviour
                     _baseValidMoves.Add(_moveOnBoard);
                     if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
-                for (int i = 1; i <= 7; i++)
+                for (int i = 1; i <= 8; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, i);
                     _baseValidMoves.Add(_moveOnBoard);
                     if (PotentialMoveIsObstructed(_boardPosition, _moveOnBoard)) { break; }
                 }
-                for (int i = 1; i <= 7; i++)
+                for (int i = 1; i <= 8; i++)
                 {
                     Vector2Int _moveOnBoard = new Vector2Int(0, -i);
                     _baseValidMoves.Add(_moveOnBoard);
@@ -905,7 +905,7 @@ public class Piece : MonoBehaviour
             }
 
             // En Passant capture
-            if (chessPieceType == ChessPieceType.Pawn)
+            if (chessPieceType == ChessPieceType.Pawn && _piece.canBeCapturedEnPassant)
             {
                 if (playerColor == PlayerColor.White && _piece.boardPosition == boardPosition + new Vector2Int(0, 1))
                 {

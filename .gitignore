@@ -5,6 +5,7 @@
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
+/[Ll]inux [Bb]uild/
 /[Bb]uild/
 /[Bb]uilds/
 /[Ll]ogs/
@@ -59,3 +60,4 @@ sysinfo.txt
 crashlytics-build.properties
 
 *.7z
+*.zip

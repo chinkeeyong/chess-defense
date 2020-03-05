@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour
 {
@@ -17,6 +18,8 @@ public class GameController : MonoBehaviour
     public GameObject bewareBanner;
     public GameObject checkmateBanner;
     public GameObject overrunBanner;
+    public GameObject playAgainButton;
+    public Image fadeCurtain;
 
     public AudioClip bannerSound;
     public AudioClip dangerSound;
@@ -45,25 +48,36 @@ public class GameController : MonoBehaviour
         PLAYER_JUST_BOUGHT_PIECE,
         PLAYER_PIECE_SPAWNING,
         PLAYER_END_TURN,
-        GAME_OVER
+        GAME_OVER_ANIMATION,
+        GAME_OVER,
+        FADING_OUT_TO_RESET,
+        RESETTING,
+        DONE
     }
 
     [HideInInspector] public GamePhase gamePhase = GamePhase.AI_END_TURN;
 
-    [HideInInspector] public bool playerIsInCheck = false;
-    [HideInInspector] public bool animating = false;
-    [HideInInspector] public bool playerIsDraggingSomething = false;
     [HideInInspector] public int turns = 0;
     [HideInInspector] public int score = 0;
     [HideInInspector] public int dinars = 0;
     public int startingDinars = 0;
     [HideInInspector] public int losses = 0;
 
+    [HideInInspector] public bool playerIsInCheck = false;
+    [HideInInspector] public bool animating = false;
+    [HideInInspector] public bool playerIsDraggingSomething = false;
+    [HideInInspector] public bool highlightingDisabled = false;
+
     [HideInInspector] public float animationTimer = 0f;
     [HideInInspector] public float bannerAnimationTime = 0.75f;
     [HideInInspector] public float endBannerAnimationTime = 1f;
     [HideInInspector] public float pieceSpawnAnimationTime = 0.65f;
     [HideInInspector] public float delayAfterEndTurn = 0.2f;
+    
+    [HideInInspector] public bool fadingOut = false;
+    [HideInInspector] public float fadeTimer = 0f;
+    [HideInInspector] public float fadingInAnimationTime = 1f; // Doesn't seem to work? Fuck Unity
+    [HideInInspector] public float fadingOutAnimationTime = 1f;
 
     [HideInInspector] public int pawnScoreValue = 1;
     [HideInInspector] public int knightScoreValue = 2;
@@ -102,26 +116,42 @@ public class GameController : MonoBehaviour
         overrunBanner.SetActive(true);
 
         gamePhase = GamePhase.AI_SPAWNING;
-        animating = false;
-
-        turns = 0;
-        score = 0;
+        
         dinars = startingDinars;
-        losses = 0;
 
         InstantiateAllWhitePieces();
 
         UpdateCounters();
         UpdatePieceShopBuyability();
         UpdatePieceShopPossibleSpawnPositions();
+
+        fadeCurtain.color = new Color(0f, 0f, 0f, 1f);
+        fadeTimer = fadingInAnimationTime;
+        animationTimer = fadingInAnimationTime;
     }
 
     private void Update()
     {
+        if (fadeTimer > -1f)
+        {
+            Color _newColor = fadeCurtain.color;
+            if (fadingOut)
+            {
+                _newColor.a = Mathf.Lerp(1f, 0f, fadeTimer / fadingOutAnimationTime);
+            }
+            else
+            {
+                _newColor.a = Mathf.Lerp(0f, 1f, fadeTimer / fadingOutAnimationTime);
+            }
+            fadeCurtain.color = _newColor;
+            fadeTimer -= Time.deltaTime;
+        }
+
         if (animating)
         {
             return;
         }
+
         if (animationTimer > 0f)
         {
             animationTimer -= Time.deltaTime;
@@ -163,13 +193,13 @@ public class GameController : MonoBehaviour
                 if (IsWhiteKingDead())
                 {
                     PlayEndBannerAnimation(checkmateBanner, dangerSound);
-                    gamePhase = GamePhase.GAME_OVER;
+                    gameOver();
                     break;
                 }
                 if (IsPlayerOverrun())
                 {
                     PlayEndBannerAnimation(overrunBanner, dangerSound);
-                    gamePhase = GamePhase.GAME_OVER;
+                    gameOver();
                     break;
                 }
                 highlightTilemap.ClearAllTiles();
@@ -282,6 +312,25 @@ public class GameController : MonoBehaviour
                 UpdatePieceShopBuyability();
                 animationTimer = delayAfterEndTurn;
                 gamePhase = GamePhase.AI_START_TURN;
+                break;
+
+            case GamePhase.GAME_OVER_ANIMATION:
+                playAgainButton.SetActive(true);
+                playAgainButton.GetComponent<Animation>().Play();
+                gamePhase = GamePhase.GAME_OVER;
+                break;
+
+            case GamePhase.FADING_OUT_TO_RESET:
+                fadeCurtain.color = new Color(0f, 0f, 0f, 0f);
+                fadingOut = true;
+                fadeTimer = fadingOutAnimationTime;
+                animationTimer = fadingOutAnimationTime;
+                gamePhase = GamePhase.RESETTING;
+                break;
+
+            case GamePhase.RESETTING:
+                SceneManager.LoadScene("MainScene", LoadSceneMode.Single);
+                gamePhase = GamePhase.DONE;
                 break;
 
             default:
@@ -614,7 +663,7 @@ public class GameController : MonoBehaviour
 
     private void UpdateDinarCounter()
     {
-        dinarCounter.GetComponentInChildren<Text>().text = "Dinars: " + dinars;
+        dinarCounter.GetComponentInChildren<Text>().text = "<color=#9ff>Dinars</color>: " + dinars;
     }
 
     private void UpdateLossCounter()
@@ -636,5 +685,15 @@ public class GameController : MonoBehaviour
         {
             _piece.UpdatePossibleSpawnPositions();
         }
+    }
+
+    public void gameOver()
+    {
+        foreach (Piece _piece in pieces)
+        {
+            _piece.Unhighlight();
+        }
+        highlightingDisabled = true;
+        gamePhase = GamePhase.GAME_OVER_ANIMATION;
     }
 }

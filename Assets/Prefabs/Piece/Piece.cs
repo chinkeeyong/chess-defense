@@ -992,7 +992,9 @@ public class Piece : MonoBehaviour
 
     public void Highlight()
     {
-        if (!highlighted && !gameController.playerIsDraggingSomething)
+        if (!highlighted &&
+            !gameController.playerIsDraggingSomething &&
+            !gameController.highlightingDisabled)
         {
             highlighted = true;
             glow.SetActive(true);

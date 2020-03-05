@@ -14,22 +14,21 @@ public class Piece : MonoBehaviour
     public ChessPieceType chessPieceType = ChessPieceType.Pawn;
 
     public Vector2Int boardPosition = new Vector2Int(0, 0);
-    
-    bool animatingMovementToAIPreferredMove = false;
 
     public AudioClip moveSound;
 
 
     // Runtime variables
 
-    Color glowColor = new Color();
-    bool dragging = false;
+    [HideInInspector] public Color glowColor = new Color();
+    [HideInInspector] public bool dragging = false;
     bool highlighted = false;
-    public bool alwaysHighlight = false;
+    [HideInInspector] public bool alwaysHighlight = false;
     bool hasMoved = false;
-    public bool canBeCapturedEnPassant = false;
-    public List<Vector2Int> validMoves = new List<Vector2Int>();
+    [HideInInspector] public bool canBeCapturedEnPassant = false;
+    [HideInInspector] public List<Vector2Int> validMoves = new List<Vector2Int>();
     float animationPercentage = 0f;
+    bool animatingMovementToAIPreferredMove = false;
 
     // Used to store info for AI
     Vector2Int aiPreferredMove = new Vector2Int(-1, -1);
@@ -37,32 +36,32 @@ public class Piece : MonoBehaviour
 
     // Static values
 
-    static Vector2 boardOrigin = new Vector2(0.24f, 1.58f);
-    static Vector2 boardOriginForMouse = new Vector2(0.24f, 1.62f);
-    static Vector2 displacementPerX = new Vector2(0.24f, -0.18f);
-    static Vector2 displacementPerY = new Vector2(-0.24f, -0.18f);
-    static Vector3 mouseDragOffset = new Vector3(0f, 0.1f);
-    static int BoardXMin = 0;
-    static int BoardXMax = 7;
-    static int BoardYMin = 1;
-    static int BoardYMax = 9;
-    static int BoardYPlayerMax = 8;
-    static float zDepthPerY = 0.01f;
-    static float glowPulseSpeed = 5f;
-    static float pieceMovementSpeed = 2f;
-    static float knightAnimationLerpSpeed = 3f;
-    static float knightJumpAnimationMagnitude = 0.5f;
+    Vector2 boardOrigin = new Vector2(0.24f, 1.58f);
+    Vector2 boardOriginForMouse = new Vector2(0.24f, 1.62f);
+    Vector2 displacementPerX = new Vector2(0.24f, -0.18f);
+    Vector2 displacementPerY = new Vector2(-0.24f, -0.18f);
+    [HideInInspector] public Vector3 mouseDragOffset = new Vector3(0f, 0.1f);
+    int BoardXMin = 0;
+    int BoardXMax = 7;
+    int BoardYMin = 1;
+    int BoardYMax = 9;
+    int BoardYPlayerMax = 8;
+    float zDepthPerY = 0.01f;
+    [HideInInspector] public float glowPulseSpeed = 5f;
+    float pieceMovementSpeed = 2f;
+    float knightAnimationLerpSpeed = 3f;
+    float knightJumpAnimationMagnitude = 0.5f;
 
 
     // Resources
 
-    GameObject shadow;
-    GameObject glow;
+    [HideInInspector] public GameObject shadow;
+    [HideInInspector] public GameObject glow;
     SpriteRenderer glowSpriteRenderer;
-    GameObject body;
+    [HideInInspector] public GameObject body;
     AudioSource audioSource;
-    GameController gameController;
-    HighlightTilemap highlightTilemap;
+    [HideInInspector] public GameController gameController;
+    [HideInInspector] public HighlightTilemap highlightTilemap;
     public Sprite white_king;
     public Sprite white_queen;
     public Sprite white_bishop;
@@ -84,7 +83,7 @@ public class Piece : MonoBehaviour
 
 
     // Awake is called when the script is loaded, before Start. We initialize the piece here.
-    private void Awake()
+    public void Awake()
     {
         // Initialize all local object references.
         shadow = transform.GetChild(0).gameObject;
@@ -123,7 +122,7 @@ public class Piece : MonoBehaviour
 
 
     // Update is called once per frame
-    void Update()
+    public void Update()
     {
         // Move
         if (animatingMovementToAIPreferredMove)
@@ -140,22 +139,23 @@ public class Piece : MonoBehaviour
     }
 
     
-    private void OnMouseEnter()
+    public void OnMouseEnter()
     {
         Highlight();
     }
 
     
-    private void OnMouseExit()
+    public void OnMouseExit()
     {
         Unhighlight();
     }
 
     
-    private void OnMouseUp()
+    public void OnMouseUp()
     {
         if (dragging)
         {
+            gameController.playerIsDraggingSomething = false;
             dragging = false;
             shadow.SetActive(true);
             
@@ -164,28 +164,31 @@ public class Piece : MonoBehaviour
             if (validMoves.Contains(_hoveredTile))
             {
                 MoveToBoardPosition(_hoveredTile);
+                audioSource.PlayOneShot(moveSound);
                 gameController.gamePhase = GameController.GamePhase.PLAYER_END_TURN;
             }
             else
             {
                 SnapToBoardPosition();
             }
-            audioSource.PlayOneShot(moveSound);
         }
     }
 
     
-    private void OnMouseDown()
+    public void OnMouseDown()
     {
-        if (gameController.gamePhase == GameController.GamePhase.PLAYER_TO_MOVE && playerColor == PlayerColor.White)
+        if (gameController.gamePhase == GameController.GamePhase.PLAYER_TO_MOVE &&
+            !gameController.playerIsDraggingSomething &&
+            playerColor == PlayerColor.White)
         {
+            gameController.playerIsDraggingSomething = true;
             dragging = true;
             shadow.SetActive(false);
         }
     }
     
 
-    private void OnMouseDrag()
+    public void OnMouseDrag()
     {
         if (dragging)
         {
@@ -197,7 +200,7 @@ public class Piece : MonoBehaviour
     }
 
     
-    private void SetChessPieceType(ChessPieceType t)
+    public void SetChessPieceType(ChessPieceType t)
     {
         switch (t)
         {
@@ -259,20 +262,20 @@ public class Piece : MonoBehaviour
     }
 
 
-    private Vector3 BoardPositionToWorldSpace(Vector2Int _position)
+    public Vector3 BoardPositionToWorldSpace(Vector2Int _position)
     {
         Vector3 _v = boardOrigin + (_position.x * displacementPerX) + (_position.y * displacementPerY);
         return new Vector3(_v.x, _v.y, _v.y * zDepthPerY);
     }
 
     
-    private void SnapToBoardPosition()
+    public void SnapToBoardPosition()
     {
         transform.position = BoardPositionToWorldSpace(boardPosition);
     }
 
 
-    private void AnimateMovement()
+    public void AnimateMovement()
     {
         if (chessPieceType == ChessPieceType.Knight)
         {
@@ -312,7 +315,7 @@ public class Piece : MonoBehaviour
     }
 
 
-    private List<Vector2Int> GetValidMoves(Vector2Int _boardPosition)
+    public List<Vector2Int> GetValidMoves(Vector2Int _boardPosition)
     {
         // Get the base movement for each chess piece type.
         List<Vector2Int> _baseValidMoves = new List<Vector2Int>();
@@ -701,7 +704,7 @@ public class Piece : MonoBehaviour
     }
 
 
-    private bool PotentialMoveIsObstructed(Vector2Int _position, Vector2Int _potentialMove)
+    public bool PotentialMoveIsObstructed(Vector2Int _position, Vector2Int _potentialMove)
     {
         foreach (Piece _piece in gameController.pieces)
         {
@@ -714,13 +717,13 @@ public class Piece : MonoBehaviour
     }
 
 
-    private bool PotentialMoveIsOutOfBounds(Vector2Int _potentialMove)
+    public bool PotentialMoveIsOutOfBounds(Vector2Int _potentialMove)
     {
         return _potentialMove.x < BoardXMin || _potentialMove.x > BoardXMax || _potentialMove.y < BoardYMin || _potentialMove.y > BoardYMax;
     }
 
     
-    private int GetPieceAICaptureScore(ChessPieceType _chessPieceType)
+    public int GetPieceAICaptureScore(ChessPieceType _chessPieceType)
     {
         switch(_chessPieceType)
         {
@@ -748,7 +751,7 @@ public class Piece : MonoBehaviour
     }
 
 
-    private int ScoreFromPotentialMoveCapturePiece(Vector2Int _potentialMove)
+    public int ScoreFromPotentialMoveCapturePiece(Vector2Int _potentialMove)
     {
         foreach (Piece _piece in gameController.pieces)
         {
@@ -777,7 +780,7 @@ public class Piece : MonoBehaviour
     }
 
 
-    private bool PotentialMoveWillCaptureWhiteKing(Vector2Int _potentialMove)
+    public bool PotentialMoveWillCaptureWhiteKing(Vector2Int _potentialMove)
     {
         Piece _whiteKing = null;
         _whiteKing = gameController.pieces.Find(p => p.chessPieceType == ChessPieceType.King && p.playerColor == PlayerColor.White);
@@ -793,7 +796,7 @@ public class Piece : MonoBehaviour
     }
 
 
-    private bool PotentialMoveWillThreatenWhiteKing(Vector2Int _potentialMove)
+    public bool PotentialMoveWillThreatenWhiteKing(Vector2Int _potentialMove)
     {
         Piece _whiteKing = null;
         _whiteKing = gameController.pieces.Find(p => p.chessPieceType == ChessPieceType.King && p.playerColor == PlayerColor.White);
@@ -892,7 +895,7 @@ public class Piece : MonoBehaviour
     }
 
 
-    private void MoveToBoardPosition(Vector2Int _move)
+    public void MoveToBoardPosition(Vector2Int _move)
     {
         if (chessPieceType == ChessPieceType.Pawn && Mathf.Abs((_move - boardPosition).magnitude) == 2)
         {
@@ -989,7 +992,7 @@ public class Piece : MonoBehaviour
 
     public void Highlight()
     {
-        if (!highlighted)
+        if (!highlighted && !gameController.playerIsDraggingSomething)
         {
             highlighted = true;
             glow.SetActive(true);
@@ -1027,7 +1030,7 @@ public class Piece : MonoBehaviour
     
     public void Unhighlight()
     {
-        if (highlighted && !alwaysHighlight)
+        if (highlighted && !alwaysHighlight && !gameController.playerIsDraggingSomething)
         {
             highlighted = false;
             glow.SetActive(false);

@@ -9,6 +9,7 @@ public class GameController : MonoBehaviour
     public GameObject piecePrefab;
     public GameObject turnCounter;
     public GameObject scoreCounter;
+    public GameObject dinarCounter;
     public GameObject lossCounter;
     public GameObject whiteToMoveBanner;
     public GameObject blackToMoveBanner;
@@ -20,7 +21,15 @@ public class GameController : MonoBehaviour
     public AudioClip bannerSound;
     public AudioClip dangerSound;
 
-    public List<Piece> pieces = new List<Piece>();
+    public List<BuyablePiece> buyablePieces;
+
+    List<Piece> piecesThatCanOverrunPlayer = new List<Piece>();
+    List<Piece> piecesThreateningWhiteKing = new List<Piece>();
+
+    AudioSource audioSource;
+    HighlightTilemap highlightTilemap;
+
+    [HideInInspector] public List<Piece> pieces = new List<Piece>();
 
     public enum GamePhase {
         AI_START_TURN,
@@ -32,31 +41,36 @@ public class GameController : MonoBehaviour
         AI_END_TURN,
         PLAYER_START_TURN,
         PLAYER_TO_MOVE,
+        PLAYER_JUST_BOUGHT_PIECE,
+        PLAYER_PIECE_SPAWNING,
         PLAYER_END_TURN,
         GAME_OVER
     }
 
-    public GamePhase gamePhase = GamePhase.AI_END_TURN;
+    [HideInInspector] public GamePhase gamePhase = GamePhase.AI_END_TURN;
 
-    public bool playerIsInCheck = false;
-    public bool animating = false;
-    public int turns = 0;
-    public int score = 0;
-    public int losses = 0;
+    [HideInInspector] public bool playerIsInCheck = false;
+    [HideInInspector] public bool animating = false;
+    [HideInInspector] public bool playerIsDraggingSomething = false;
+    [HideInInspector] public int turns = 0;
+    [HideInInspector] public int score = 0;
+    [HideInInspector] public int dinars = 0;
+    public int startingDinars = 0;
+    [HideInInspector] public int losses = 0;
 
-    public float animationTimer = 0f;
-    static float bannerAnimationTime = 0.75f;
-    static float endBannerAnimationTime = 1f;
-    static float pieceSpawnAnimationTime = 0.65f;
-    static float delayAfterEndTurn = 0.2f;
+    [HideInInspector] public float animationTimer = 0f;
+    [HideInInspector] public float bannerAnimationTime = 0.75f;
+    [HideInInspector] public float endBannerAnimationTime = 1f;
+    [HideInInspector] public float pieceSpawnAnimationTime = 0.65f;
+    [HideInInspector] public float delayAfterEndTurn = 0.2f;
 
-    AudioSource audioSource;
-    HighlightTilemap highlightTilemap;
+    [HideInInspector] public int pawnScoreValue = 1;
+    [HideInInspector] public int knightScoreValue = 2;
+    [HideInInspector] public int bishopScoreValue = 3;
+    [HideInInspector] public int rookScoreValue = 4;
+    [HideInInspector] public int queenScoreValue = 5;
+    
 
-
-    static int pawnScoreValue = 1;
-    static int knightScoreValue = 2;
-    static int bishopScoreValue = 3;
 
     private void Awake()
     {
@@ -91,11 +105,14 @@ public class GameController : MonoBehaviour
 
         turns = 0;
         score = 0;
+        dinars = startingDinars;
         losses = 0;
 
         InstantiateAllWhitePieces();
 
         UpdateCounters();
+        UpdatePieceShopBuyability();
+        UpdatePieceShopPossibleSpawnPositions();
     }
 
     private void Update()
@@ -158,12 +175,12 @@ public class GameController : MonoBehaviour
                 break;
 
             case GamePhase.AI_CHECK_FOR_CHECK:
-                List<Piece> _piecesThreateningWhiteKing = GetPiecesThreateningWhiteKing();
-                if (_piecesThreateningWhiteKing.Count > 0)
+                piecesThreateningWhiteKing = GetPiecesThreateningWhiteKing();
+                if (piecesThreateningWhiteKing.Count > 0)
                 {
                     highlightTilemap.ClearAllTiles();
                     playerIsInCheck = true;
-                    foreach(Piece _piece in _piecesThreateningWhiteKing)
+                    foreach(Piece _piece in piecesThreateningWhiteKing)
                     {
                         _piece.Highlight();
                         _piece.alwaysHighlight = true;
@@ -175,11 +192,11 @@ public class GameController : MonoBehaviour
                 break;
 
             case GamePhase.AI_CHECK_FOR_BEWARE:
-                List<Piece> _piecesThatCanOverrunPlayer = GetPiecesThatCanOverrunPlayer();
-                if (_piecesThatCanOverrunPlayer.Count > 0)
+                piecesThatCanOverrunPlayer = GetPiecesThatCanOverrunPlayer();
+                if (piecesThatCanOverrunPlayer.Count > 0)
                 {
                     highlightTilemap.ClearAllTiles();
-                    foreach (Piece _piece in _piecesThatCanOverrunPlayer)
+                    foreach (Piece _piece in piecesThatCanOverrunPlayer)
                     {
                         _piece.Highlight();
                         _piece.alwaysHighlight = true;
@@ -205,6 +222,43 @@ public class GameController : MonoBehaviour
                         _piece.canBeCapturedEnPassant = false;
                     }
                 }
+                UpdatePieceShopPossibleSpawnPositions();
+                gamePhase = GamePhase.PLAYER_TO_MOVE;
+                break;
+
+            case GamePhase.PLAYER_JUST_BOUGHT_PIECE:
+                SetAllValidMoves();
+                UpdateDinarCounter();
+                UpdatePieceShopBuyability();
+                UpdatePieceShopPossibleSpawnPositions();
+                piecesThreateningWhiteKing = GetPiecesThreateningWhiteKing();
+                if (piecesThreateningWhiteKing.Count > 0)
+                {
+                    highlightTilemap.ClearAllTiles();
+                    playerIsInCheck = true;
+                    foreach (Piece _piece in piecesThreateningWhiteKing)
+                    {
+                        _piece.Highlight();
+                        _piece.alwaysHighlight = true;
+                    }
+                    highlightTilemap.SaveTilesToCache();
+                }
+                piecesThatCanOverrunPlayer = GetPiecesThatCanOverrunPlayer();
+                if (piecesThatCanOverrunPlayer.Count > 0)
+                {
+                    highlightTilemap.ClearAllTiles();
+                    foreach (Piece _piece in piecesThatCanOverrunPlayer)
+                    {
+                        _piece.Highlight();
+                        _piece.alwaysHighlight = true;
+                    }
+                    highlightTilemap.SaveTilesToCache();
+                }
+                animationTimer = pieceSpawnAnimationTime;
+                gamePhase = GamePhase.PLAYER_PIECE_SPAWNING;
+                break;
+
+            case GamePhase.PLAYER_PIECE_SPAWNING:
                 gamePhase = GamePhase.PLAYER_TO_MOVE;
                 break;
 
@@ -220,6 +274,7 @@ public class GameController : MonoBehaviour
                 }
                 highlightTilemap.ClearAllTiles();
                 playerIsInCheck = false;
+                UpdatePieceShopBuyability();
                 animationTimer = delayAfterEndTurn;
                 gamePhase = GamePhase.AI_START_TURN;
                 break;
@@ -257,20 +312,34 @@ public class GameController : MonoBehaviour
             {
                 case Piece.ChessPieceType.Pawn:
                     score += pawnScoreValue;
+                    dinars += pawnScoreValue;
                     break;
 
                 case Piece.ChessPieceType.Knight:
                     score += knightScoreValue;
+                    dinars += knightScoreValue;
                     break;
 
                 case Piece.ChessPieceType.Bishop:
                     score += bishopScoreValue;
+                    dinars += bishopScoreValue;
+                    break;
+
+                case Piece.ChessPieceType.Rook:
+                    score += rookScoreValue;
+                    dinars += rookScoreValue;
+                    break;
+
+                case Piece.ChessPieceType.Queen:
+                    score += queenScoreValue;
+                    dinars += queenScoreValue;
                     break;
 
                 default:
                     break;
             }
             UpdateScoreCounter();
+            UpdateDinarCounter();
         }
         pieces.Remove(_capturedPiece);
         Destroy(_capturedPiece.gameObject);
@@ -511,6 +580,7 @@ public class GameController : MonoBehaviour
         animationTimer += bannerAnimationTime;
     }
 
+
     private void PlayEndBannerAnimation(GameObject _banner, AudioClip _sound)
     {
         _banner.GetComponent<Animation>().Play();
@@ -523,6 +593,7 @@ public class GameController : MonoBehaviour
     {
         UpdateTurnCounter();
         UpdateScoreCounter();
+        UpdateDinarCounter();
         UpdateLossCounter();
     }
 
@@ -536,8 +607,29 @@ public class GameController : MonoBehaviour
         scoreCounter.GetComponentInChildren<Text>().text = "Score: " + score;
     }
 
+    private void UpdateDinarCounter()
+    {
+        dinarCounter.GetComponentInChildren<Text>().text = "Dinars: " + dinars;
+    }
+
     private void UpdateLossCounter()
     {
         lossCounter.GetComponentInChildren<Text>().text = "Pieces Lost: " + losses;
+    }
+
+    public void UpdatePieceShopBuyability()
+    {
+        foreach (BuyablePiece _piece in buyablePieces)
+        {
+            _piece.UpdateBuyability();
+        }
+    }
+
+    public void UpdatePieceShopPossibleSpawnPositions()
+    {
+        foreach (BuyablePiece _piece in buyablePieces)
+        {
+            _piece.UpdatePossibleSpawnPositions();
+        }
     }
 }

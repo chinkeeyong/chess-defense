@@ -20,6 +20,7 @@ public class GameController : MonoBehaviour
 
     public AudioClip bannerSound;
     public AudioClip dangerSound;
+    public AudioClip dinarSound;
 
     public List<BuyablePiece> buyablePieces;
 
@@ -171,6 +172,7 @@ public class GameController : MonoBehaviour
                     gamePhase = GamePhase.GAME_OVER;
                     break;
                 }
+                highlightTilemap.ClearAllTiles();
                 gamePhase = GamePhase.AI_CHECK_FOR_CHECK;
                 break;
 
@@ -178,7 +180,6 @@ public class GameController : MonoBehaviour
                 piecesThreateningWhiteKing = GetPiecesThreateningWhiteKing();
                 if (piecesThreateningWhiteKing.Count > 0)
                 {
-                    highlightTilemap.ClearAllTiles();
                     playerIsInCheck = true;
                     foreach(Piece _piece in piecesThreateningWhiteKing)
                     {
@@ -195,7 +196,6 @@ public class GameController : MonoBehaviour
                 piecesThatCanOverrunPlayer = GetPiecesThatCanOverrunPlayer();
                 if (piecesThatCanOverrunPlayer.Count > 0)
                 {
-                    highlightTilemap.ClearAllTiles();
                     foreach (Piece _piece in piecesThatCanOverrunPlayer)
                     {
                         _piece.Highlight();
@@ -231,10 +231,16 @@ public class GameController : MonoBehaviour
                 UpdateDinarCounter();
                 UpdatePieceShopBuyability();
                 UpdatePieceShopPossibleSpawnPositions();
+                foreach (Piece _piece in pieces)
+                {
+                    _piece.alwaysHighlight = false;
+                    _piece.Unhighlight();
+                }
+                highlightTilemap.ClearAllTiles();
+                audioSource.PlayOneShot(dinarSound);
                 piecesThreateningWhiteKing = GetPiecesThreateningWhiteKing();
                 if (piecesThreateningWhiteKing.Count > 0)
                 {
-                    highlightTilemap.ClearAllTiles();
                     playerIsInCheck = true;
                     foreach (Piece _piece in piecesThreateningWhiteKing)
                     {
@@ -246,7 +252,6 @@ public class GameController : MonoBehaviour
                 piecesThatCanOverrunPlayer = GetPiecesThatCanOverrunPlayer();
                 if (piecesThatCanOverrunPlayer.Count > 0)
                 {
-                    highlightTilemap.ClearAllTiles();
                     foreach (Piece _piece in piecesThatCanOverrunPlayer)
                     {
                         _piece.Highlight();

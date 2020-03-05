@@ -1034,9 +1034,9 @@ RectTransform:
   m_Father: {fileID: 1950796364}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 32, y: -72}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 32, y: 74.99997}
   m_SizeDelta: {x: 246.27, y: 24}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &188498775
@@ -1211,6 +1211,7 @@ MonoBehaviour:
   overrunBanner: {fileID: 1397123966}
   bannerSound: {fileID: 8300000, guid: f7072a01694c5ac43ba7655e9f83cc06, type: 3}
   dangerSound: {fileID: 8300000, guid: 672ed1fa92a22fa48a385e315bc1c72a, type: 3}
+  dinarSound: {fileID: 8300000, guid: 9cca28399dc6a0946995827e7d36638e, type: 3}
   buyablePieces:
   - {fileID: 2862249895321756805}
   - {fileID: 916721864}
@@ -1380,9 +1381,9 @@ RectTransform:
   m_Father: {fileID: 1950796364}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 32, y: -96}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 32, y: 51}
   m_SizeDelta: {x: 246.27, y: 24}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &424943196
@@ -1523,7 +1524,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -100}
+  m_LocalPosition: {x: 0.1, y: -0.1, z: -100}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -1987,7 +1988,7 @@ MonoBehaviour:
   glow_rook: {fileID: 0}
   glow_knight: {fileID: 0}
   glow_pawn: {fileID: 0}
-  price: 6
+  price: 10
 --- !u!1 &916721863 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7419909137364011814, guid: e93817baa0800014197caf361227bf17,
@@ -2041,7 +2042,7 @@ MonoBehaviour:
   glow_rook: {fileID: 0}
   glow_knight: {fileID: 0}
   glow_pawn: {fileID: 0}
-  price: 4
+  price: 6
 --- !u!1 &924512398
 GameObject:
   m_ObjectHideFlags: 0
@@ -2352,7 +2353,7 @@ MonoBehaviour:
   glow_rook: {fileID: 0}
   glow_knight: {fileID: 0}
   glow_pawn: {fileID: 0}
-  price: 9
+  price: 13
 --- !u!1 &1085035535
 GameObject:
   m_ObjectHideFlags: 0
@@ -2421,7 +2422,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 9
+  m_Text: 13
 --- !u!222 &1085035538
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -2802,9 +2803,9 @@ RectTransform:
   m_Father: {fileID: 1950796364}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 32, y: -48}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 32, y: 98.99997}
   m_SizeDelta: {x: 246.27, y: 24}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1283895601
@@ -2991,7 +2992,7 @@ MonoBehaviour:
   glow_rook: {fileID: 0}
   glow_knight: {fileID: 0}
   glow_pawn: {fileID: 0}
-  price: 15
+  price: 18
 --- !u!1 &1454350352
 GameObject:
   m_ObjectHideFlags: 0
@@ -3205,7 +3206,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 15
+  m_Text: 18
 --- !u!222 &1514679915
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3591,7 +3592,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 2
+  m_Text: 3
 --- !u!222 &1757256039
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3677,9 +3678,9 @@ RectTransform:
   m_Father: {fileID: 1950796364}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 32, y: -24}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 32, y: 122.99997}
   m_SizeDelta: {x: 246.27, y: 24}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1949637857
@@ -3905,7 +3906,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 4
+  m_Text: 6
 --- !u!222 &2041870309
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3938,7 +3939,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2079451592}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.17, y: -1.39, z: 0}
+  m_LocalPosition: {x: 1.27, y: -1.49, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 2862249895321756802}
@@ -4017,7 +4018,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 6
+  m_Text: 10
 --- !u!222 &2140435675
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4085,4 +4086,4 @@ MonoBehaviour:
   glow_rook: {fileID: 0}
   glow_knight: {fileID: 0}
   glow_pawn: {fileID: 0}
-  price: 2
+  price: 3

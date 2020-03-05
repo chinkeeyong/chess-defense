@@ -12,12 +12,33 @@ public class GameController : MonoBehaviour
     public GameObject lossCounter;
     public GameObject whiteToMoveBanner;
     public GameObject blackToMoveBanner;
+    public GameObject checkBanner;
+    public GameObject bewareBanner;
+    public GameObject checkmateBanner;
+    public GameObject overrunBanner;
+
+    public AudioClip bannerSound;
+    public AudioClip dangerSound;
 
     public List<Piece> pieces = new List<Piece>();
 
-    public enum GamePhase { AI_EXECUTION, AI_SPAWNING, AI_END_TURN, PLAYER_START_TURN, PLAYER_TO_MOVE, PLAYER_END_TURN }
+    public enum GamePhase {
+        AI_START_TURN,
+        AI_EXECUTION,
+        AI_SPAWNING,
+        AI_CHECK_FOR_PLAYER_LOSS,
+        AI_CHECK_FOR_CHECK,
+        AI_CHECK_FOR_BEWARE,
+        AI_END_TURN,
+        PLAYER_START_TURN,
+        PLAYER_TO_MOVE,
+        PLAYER_END_TURN,
+        GAME_OVER
+    }
+
     public GamePhase gamePhase = GamePhase.AI_END_TURN;
-    
+
+    public bool playerIsInCheck = false;
     public bool animating = false;
     public int turns = 0;
     public int score = 0;
@@ -25,13 +46,23 @@ public class GameController : MonoBehaviour
 
     public float animationTimer = 0f;
     static float bannerAnimationTime = 0.75f;
+    static float endBannerAnimationTime = 1f;
     static float pieceSpawnAnimationTime = 0.65f;
+    static float delayAfterEndTurn = 0.2f;
+
+    AudioSource audioSource;
+    HighlightTilemap highlightTilemap;
 
 
     static int pawnScoreValue = 1;
     static int knightScoreValue = 2;
     static int bishopScoreValue = 3;
 
+    private void Awake()
+    {
+        audioSource = GetComponent<AudioSource>();
+        highlightTilemap = GameObject.Find("/Grid/Highlight Tilemap").GetComponent<HighlightTilemap>();
+    }
 
     private void Start()
     {
@@ -42,7 +73,19 @@ public class GameController : MonoBehaviour
 
         blackToMoveBanner.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
         blackToMoveBanner.SetActive(true);
-        
+
+        checkBanner.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
+        checkBanner.SetActive(true);
+
+        bewareBanner.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
+        bewareBanner.SetActive(true);
+
+        checkmateBanner.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
+        checkmateBanner.SetActive(true);
+
+        overrunBanner.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
+        overrunBanner.SetActive(true);
+
         gamePhase = GamePhase.AI_SPAWNING;
         animating = false;
 
@@ -52,7 +95,7 @@ public class GameController : MonoBehaviour
 
         InstantiateAllWhitePieces();
 
-        updateCounters();
+        UpdateCounters();
     }
 
     private void Update()
@@ -69,6 +112,11 @@ public class GameController : MonoBehaviour
 
         switch (gamePhase)
         {
+            case GamePhase.AI_START_TURN:
+                PlayBannerAnimation(blackToMoveBanner, bannerSound);
+                gamePhase = GamePhase.AI_EXECUTION;
+                break;
+
             case GamePhase.AI_EXECUTION:
                 if (pieces.Find(p => !p.hasBeenMovedThisTurn && p.playerColor == Piece.PlayerColor.Black) != null) // If there is a piece that hasn't moved
                 {
@@ -83,20 +131,69 @@ public class GameController : MonoBehaviour
                     {
                         _piece.hasBeenMovedThisTurn = false;
                     }
+                    animationTimer = delayAfterEndTurn;
                     gamePhase = GamePhase.AI_SPAWNING;
                 }
                 break;
 
             case GamePhase.AI_SPAWNING:
                 SpawnAllEnemyPieces();
+                gamePhase = GamePhase.AI_CHECK_FOR_PLAYER_LOSS;
+                break;
+
+            case GamePhase.AI_CHECK_FOR_PLAYER_LOSS:
+                if (IsWhiteKingDead())
+                {
+                    PlayEndBannerAnimation(checkmateBanner, dangerSound);
+                    gamePhase = GamePhase.GAME_OVER;
+                    break;
+                }
+                if (IsPlayerOverrun())
+                {
+                    PlayEndBannerAnimation(overrunBanner, dangerSound);
+                    gamePhase = GamePhase.GAME_OVER;
+                    break;
+                }
+                gamePhase = GamePhase.AI_CHECK_FOR_CHECK;
+                break;
+
+            case GamePhase.AI_CHECK_FOR_CHECK:
+                List<Piece> _piecesThreateningWhiteKing = GetPiecesThreateningWhiteKing();
+                if (_piecesThreateningWhiteKing.Count > 0)
+                {
+                    highlightTilemap.ClearAllTiles();
+                    playerIsInCheck = true;
+                    foreach(Piece _piece in _piecesThreateningWhiteKing)
+                    {
+                        _piece.Highlight();
+                        _piece.alwaysHighlight = true;
+                    }
+                    highlightTilemap.SaveTilesToCache();
+                    PlayBannerAnimation(checkBanner, dangerSound);
+                }
+                gamePhase = GamePhase.AI_CHECK_FOR_BEWARE;
+                break;
+
+            case GamePhase.AI_CHECK_FOR_BEWARE:
+                List<Piece> _piecesThatCanOverrunPlayer = GetPiecesThatCanOverrunPlayer();
+                if (_piecesThatCanOverrunPlayer.Count > 0)
+                {
+                    highlightTilemap.ClearAllTiles();
+                    foreach (Piece _piece in _piecesThatCanOverrunPlayer)
+                    {
+                        _piece.Highlight();
+                        _piece.alwaysHighlight = true;
+                    }
+                    highlightTilemap.SaveTilesToCache();
+                    PlayBannerAnimation(bewareBanner, dangerSound);
+                }
                 gamePhase = GamePhase.AI_END_TURN;
                 break;
 
             case GamePhase.AI_END_TURN:
                 turns++;
-                updateTurnCounter();
-                whiteToMoveBanner.GetComponent<Animation>().Play();
-                animationTimer += bannerAnimationTime;
+                UpdateTurnCounter();
+                PlayBannerAnimation(whiteToMoveBanner, bannerSound);
                 gamePhase = GamePhase.PLAYER_START_TURN;
                 break;
 
@@ -112,16 +209,19 @@ public class GameController : MonoBehaviour
                 break;
 
             case GamePhase.PLAYER_END_TURN:
-                blackToMoveBanner.GetComponent<Animation>().Play();
-                animationTimer += bannerAnimationTime;
                 foreach (Piece _piece in pieces)
                 {
+                    _piece.alwaysHighlight = false;
+                    _piece.Unhighlight();
                     if (_piece.playerColor == Piece.PlayerColor.Black)
                     {
                         _piece.canBeCapturedEnPassant = false;
                     }
                 }
-                gamePhase = GamePhase.AI_EXECUTION;
+                highlightTilemap.ClearAllTiles();
+                playerIsInCheck = false;
+                animationTimer = delayAfterEndTurn;
+                gamePhase = GamePhase.AI_START_TURN;
                 break;
 
             default:
@@ -149,7 +249,7 @@ public class GameController : MonoBehaviour
         if (_capturedPiece.playerColor == Piece.PlayerColor.White)
         {
             losses++;
-            updateLossCounter();
+            UpdateLossCounter();
         }
         else
         {
@@ -170,7 +270,7 @@ public class GameController : MonoBehaviour
                 default:
                     break;
             }
-            updateScoreCounter();
+            UpdateScoreCounter();
         }
         pieces.Remove(_capturedPiece);
         Destroy(_capturedPiece.gameObject);
@@ -303,7 +403,7 @@ public class GameController : MonoBehaviour
         if (_newPiece != null)
         {
             _newPiece.GetComponent<Animation>().Play("SpawnAnimation");
-            animationTimer += pieceSpawnAnimationTime;
+            animationTimer = pieceSpawnAnimationTime;
         }
     }
 
@@ -327,26 +427,116 @@ public class GameController : MonoBehaviour
             }
         }
     }
-    
 
-    private void updateCounters()
+
+    private bool IsWhiteKingDead()
     {
-        updateTurnCounter();
-        updateScoreCounter();
-        updateLossCounter();
+        Piece _whiteKing = null;
+        _whiteKing = pieces.Find(p => p.chessPieceType == Piece.ChessPieceType.King && p.playerColor == Piece.PlayerColor.White);
+        if (_whiteKing == null)
+        {
+            return true;
+        }
+        return false;
     }
 
-    private void updateTurnCounter()
+
+    private List<Piece> GetPiecesThreateningWhiteKing()
+    {
+        Piece _whiteKing = pieces.Find(p => p.chessPieceType == Piece.ChessPieceType.King && p.playerColor == Piece.PlayerColor.White);
+
+        List<Piece> _listOfPieces = new List<Piece>();
+        
+        foreach (Piece _piece in pieces)
+        {
+            if (_piece.playerColor == Piece.PlayerColor.Black)
+            {
+                foreach (Vector2Int _move in _piece.validMoves)
+                {
+                    if (_move == _whiteKing.boardPosition)
+                    {
+                        _listOfPieces.Add(_piece);
+                        break;
+                    }
+                }
+            }
+        }
+        return _listOfPieces;
+    }
+
+
+    private bool IsPlayerOverrun()
+    {
+
+        foreach (Piece _piece in pieces)
+        {
+            if (_piece.boardPosition.y >= 9)
+            {
+                if (_piece.playerColor == Piece.PlayerColor.Black)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+    private List<Piece> GetPiecesThatCanOverrunPlayer()
+    {
+        List<Piece> _listOfPieces = new List<Piece>();
+
+        foreach (Piece _piece in pieces)
+        {
+            if (_piece.playerColor == Piece.PlayerColor.Black)
+            {
+                foreach (Vector2Int _move in _piece.validMoves)
+                {
+                    if (_move.y >= 9)
+                    {
+                        _listOfPieces.Add(_piece);
+                        break;
+                    }
+                }
+            }
+        }
+        return _listOfPieces;
+    }
+
+
+    private void PlayBannerAnimation(GameObject _banner, AudioClip _sound)
+    {
+        _banner.GetComponent<Animation>().Play();
+        audioSource.PlayOneShot(_sound, 0.6f);
+        animationTimer += bannerAnimationTime;
+    }
+
+    private void PlayEndBannerAnimation(GameObject _banner, AudioClip _sound)
+    {
+        _banner.GetComponent<Animation>().Play();
+        audioSource.PlayOneShot(_sound, 0.6f);
+        animationTimer += endBannerAnimationTime;
+    }
+
+
+    private void UpdateCounters()
+    {
+        UpdateTurnCounter();
+        UpdateScoreCounter();
+        UpdateLossCounter();
+    }
+
+    private void UpdateTurnCounter()
     {
         turnCounter.GetComponentInChildren<Text>().text = "Turn: " + turns;
     }
 
-    private void updateScoreCounter()
+    private void UpdateScoreCounter()
     {
         scoreCounter.GetComponentInChildren<Text>().text = "Score: " + score;
     }
 
-    private void updateLossCounter()
+    private void UpdateLossCounter()
     {
         lossCounter.GetComponentInChildren<Text>().text = "Pieces Lost: " + losses;
     }

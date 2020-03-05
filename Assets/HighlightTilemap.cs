@@ -9,13 +9,18 @@ public class HighlightTilemap : MonoBehaviour
     public TileBase highlightenemy;
     public TileBase highlightdanger;
 
+    public BoundsInt bounds;
+
     Tilemap tilemap;
+    TileBase[] tileCache;
 
     static float glowPulseSpeed = 5f;
 
     private void Start()
     {
         tilemap = gameObject.GetComponent<Tilemap>();
+        tileCache = new TileBase[bounds.size.x * bounds.size.y * bounds.size.z];
+        ClearAllTiles();
     }
 
     // Update is called once per frame
@@ -48,9 +53,21 @@ public class HighlightTilemap : MonoBehaviour
         tilemap.RefreshTile(ChessboardToGrid(v));
     }
 
+    public void SaveTilesToCache()
+    {
+        tileCache = tilemap.GetTilesBlock(bounds);
+    }
+
+    public void LoadTilesFromCache()
+    {
+        tilemap.SetTilesBlock(bounds, tileCache);
+        tilemap.RefreshAllTiles();
+    }
+
     public void ClearAllTiles()
     {
         tilemap.ClearAllTiles();
+        SaveTilesToCache();
         tilemap.RefreshAllTiles();
     }
 }

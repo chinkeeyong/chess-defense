@@ -1136,7 +1136,7 @@ PrefabInstance:
     - target: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
         type: 3}
       propertyPath: m_RootOrder
-      value: 3
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
         type: 3}
@@ -2217,7 +2217,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
-    m_TransformParent: {fileID: 227231990}
+    m_TransformParent: {fileID: 2079451593}
     m_Modifications:
     - target: {fileID: 350971749301521092, guid: e93817baa0800014197caf361227bf17,
         type: 3}
@@ -2234,7 +2234,7 @@ PrefabInstance:
     - target: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.23999995
+      value: 0.72
       objectReference: {fileID: 0}
     - target: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
         type: 3}
@@ -2269,7 +2269,7 @@ PrefabInstance:
     - target: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
         type: 3}
       propertyPath: m_RootOrder
-      value: 4
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
         type: 3}
@@ -2294,6 +2294,12 @@ PrefabInstance:
     m_RemovedComponents:
     - {fileID: 7419909137364011811, guid: e93817baa0800014197caf361227bf17, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: e93817baa0800014197caf361227bf17, type: 3}
+--- !u!4 &964412658 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7419909137364011808, guid: e93817baa0800014197caf361227bf17,
+    type: 3}
+  m_PrefabInstance: {fileID: 964412657}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &985133701 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7419909137364011814, guid: e93817baa0800014197caf361227bf17,
@@ -3939,6 +3945,7 @@ Transform:
   - {fileID: 2862249895321756802}
   - {fileID: 748352367}
   - {fileID: 764135328}
+  - {fileID: 964412658}
   - {fileID: 227231990}
   m_Father: {fileID: 0}
   m_RootOrder: 6
